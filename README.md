@@ -10,20 +10,20 @@ Code for the paper "**Multi-Teacher Graph Temporal Relational Network for Online
 
 - **stage 1: Feature Extraction**
 
-1. Download the pre-trained checkpoint file of the feature encoder and put it to `MGTR-Net/ckpts/cholec80/student_encoder.pth`
+1. [Download](https://drive.google.com/drive/folders/1Rg8B1soyGkr0-24zI0o6BowZIbNvBcTj?usp=share_link) the pre-trained checkpoint file of the feature encoder and put it to `MGTR-Net/ckpts/cholec80/student_encoder.pth`
 2. Run the following code to extract the visual features: 
 
 ```bash
 python feature_extraction.py
 ```
 
-or you can download our pre-extracted features and put them to `MGTR-Net/features/cholec80/`
+or you can [download](https://drive.google.com/drive/folders/1TzmSUc2W_BBP5qB1NcP1Defc4C2XbfPl?usp=share_link) our pre-extracted features and put them to `MGTR-Net/features/cholec80/`
 
 
 
 - **stage 2: Temporal Reasoning**
 
-1. Download the pre-trained checkpoint file of the temporal encoder and put it to `MGTR-Net/ckpts/cholec80/temporal_encoder.pth`
+1. [Download](https://drive.google.com/drive/folders/1Rg8B1soyGkr0-24zI0o6BowZIbNvBcTj?usp=share_link) the pre-trained checkpoint file of the temporal encoder and put it to `MGTR-Net/ckpts/cholec80/temporal_encoder.pth`
 2. Run the following code to generate predictions of the surgical workflow:
 
 ```
