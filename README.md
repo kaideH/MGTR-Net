@@ -30,12 +30,6 @@ or you can [download](https://drive.google.com/drive/folders/1TzmSUc2W_BBP5qB1Nc
 python eval.py
 ```
 
-You will get the following results:
-
-```
-{'acc': 92.97337300624586, 'recall': 85.68485972864084, 'precision': 87.43070462776161, 'jaccard': 78.1865950509938}
-```
-
 
 
 - **Evaluate the MGTR-Net with a 10 second relaxed boundary**
@@ -44,33 +38,6 @@ To evaluate the with 10 second relaxed boundaries, move to `MGTR-Net/evaluations
 
 ```
 matlab Main.m
-```
-
-You will get the following results:
-
-```
-================================================
-                    Phase|  Jacc|  Prec|   Rec|
-================================================
-              Preparation| 89.12| 97.73| 91.33|
----------------------------------------------
-  CalotTriangleDissection| 97.78| 98.99| 98.87|
----------------------------------------------
-          ClippingCutting| 81.05| 98.20| 83.12|
----------------------------------------------
-    GallbladderDissection| 89.47| 91.30| 98.58|
----------------------------------------------
-     GallbladderPackaging| 79.33| 87.06| 91.35|
----------------------------------------------
-      CleaningCoagulation| 63.20| 85.53| 69.06|
----------------------------------------------
-    GallbladderRetraction| 78.47| 88.04| 91.57|
----------------------------------------------
-================================================
-Mean jaccard: 82.63 +- 11.00
-Mean accuracy: 94.06 +-  4.65
-Mean precision: 92.41 +-  5.79
-Mean recall: 89.13 +- 10.32
 ```
 
 
