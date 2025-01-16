@@ -21,12 +21,14 @@ phase_dict_key = {
 
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, frame_dir, label_dir, transforms, sample_rate):
+    def __init__(self, frame_dir, label_dir, transforms, sample_rate, sub_set=None):
         super().__init__()
         self.transforms = transforms
 
         self.samples = []
         for video_name in tqdm(os.listdir(frame_dir)):
+            if sub_set and video_name not in sub_set:
+                continue
             if video_name.startswith("."): # ignore .ipynb_checkpoints
                 continue
             

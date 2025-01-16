@@ -11,11 +11,11 @@ class Metrics():
     """
 
     def __init__(self, num_classes=7):
-        self.jaccard_list, self.precision_list, self.recall_list, self.acc_list = [], [], [], []
+        self.jaccard_list, self.precision_list, self.recall_list, self.acc_list, self.f1_list = [], [], [], [], []
         self.num_classes = num_classes
 
     def evaluate(self, gtLabelID, predLabelID):
-        jacc_list, recall_list, prec_list = [np.nan]*self.num_classes, [np.nan]*self.num_classes, [np.nan]*self.num_classes
+        jacc_list, recall_list, prec_list, f1_list = [np.nan]*self.num_classes, [np.nan]*self.num_classes, [np.nan]*self.num_classes, [np.nan]*self.num_classes
 
         for iPhase in range(self.num_classes):
             pred_idx_list = np.argwhere(predLabelID==iPhase).reshape(-1) 
@@ -37,32 +37,52 @@ class Metrics():
             sumGT = np.sum(gtLabelID == iPhase)
             recall_list[iPhase]  = tp * 100 / sumGT
 
+            f1_list[iPhase] = (2 * prec_list[iPhase] * recall_list[iPhase]) / (prec_list[iPhase] + recall_list[iPhase])
+
         acc = np.sum(gtLabelID==predLabelID) / len(gtLabelID)
         acc = acc * 100
         
-        return jacc_list, prec_list, recall_list, acc
+        return jacc_list, prec_list, recall_list, acc, f1_list
 
     def add_video_sample(self, video_id, gtLabelID, predLabelID):
         """ gtLabelID, predLabelID: np.array, [1, seq_len] """
-        res, prec, rec, acc = self.evaluate(gtLabelID, predLabelID) 
+        res, prec, rec, acc, f1 = self.evaluate(gtLabelID, predLabelID) 
         self.jaccard_list.append(np.array(res))
         self.precision_list.append(np.array(prec))
         self.recall_list.append(np.array(rec))
         self.acc_list.append(acc)
+        self.f1_list.append(f1)
+
         return
     
+    def evaluate_surgery(self):
+        return
+
     def jaccard(self):
         jaccard = np.array(self.jaccard_list)
         jaccard[jaccard > 100] = 100
         meanJaccPerPhase = np.nanmean(jaccard, 0)
         meanJacc = np.nanmean(meanJaccPerPhase)
-        stdJacc = np.std(meanJaccPerPhase)
+        stdJacc = np.nanstd(meanJaccPerPhase)
         meanjaccphase, stdjaccphase = [], []
         for h in range(self.num_classes):
             jaccphase = jaccard[:, h]
             meanjaccphase.append(np.nanmean(jaccphase))
             stdjaccphase.append(np.nanstd(jaccphase))
         return meanJacc, stdJacc, meanjaccphase, stdjaccphase
+
+    def f1(self):
+        f1 = np.array(self.f1_list)
+        f1[f1 > 100] = 100
+        meanF1PerPhase = np.nanmean(f1, 0)
+        meanF1 = np.nanmean(meanF1PerPhase)
+        stdF1 = np.nanstd(meanF1PerPhase)
+        meanf1phase, stdf1phase = [], []
+        for h in range(self.num_classes):
+            f1phase = f1[:, h]
+            meanf1phase.append(np.nanmean(f1phase))
+            stdf1phase.append(np.nanstd(f1phase))
+        return meanF1, stdF1, meanf1phase, stdf1phase
 
     def precision(self):
         precision = np.array(self.precision_list)
@@ -106,6 +126,7 @@ class Metrics():
             prefix + 'recall': self.recall()[0],
             prefix + 'precision': self.precision()[0],
             prefix + 'jaccard': self.jaccard()[0],
+            prefix + 'f1': self.f1()[0],
         }
 
 

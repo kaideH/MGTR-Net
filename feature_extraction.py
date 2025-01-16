@@ -57,25 +57,24 @@ def main(args):
     model = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.IMAGENET1K_V2)
     model.fc = nn.Identity()
     model = nn.DataParallel(model).cuda()
-    ckpt_path = f"ckpts/{args.dataset}/student_encoder.pth" 
+    # ckpt_path = f"ckpts/{args.dataset}/student_encoder.pth" 
+    ckpt_path = f"exps/{args.dataset}/CM/ckpts/best_train_loss.pth" 
     checkpoint = torch.load(ckpt_path, map_location="cpu")
     model.load_state_dict(checkpoint['state_dict'])
 
     # dataset
-    if args.dataset == "cholec80":
-        from spatial.datasets.cholec80.frame import Dataset
-    elif args.dataset == "cataracts101":
-        from spatial.datasets.cataracts101.frame import Dataset
-    else:
-        print(f"unknow dataset {args.dataset}")
-
+    import data_split
+    from spatial.datasets.cholec80.frame import Dataset
     data_transforms = transforms.Compose([
         transforms.CenterCrop((306, 544)),
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
         transforms.Normalize([0.3456, 0.2281, 0.2233], [0.2528, 0.2135, 0.2104])
     ])
-    dataset = Dataset(args.frame_dir, args.label_dir, data_transforms, 25)
+    args.frame_dir = "/root/dataspace/cholec80/frames"
+    args.label_dir = "/root/dataspace/cholec80/phase_annotations"
+    sub_set = data_split.data_sub_set_cholec80
+    dataset = Dataset(args.frame_dir, args.label_dir, data_transforms, 25, sub_set[f"all"])
     data_loader = DataLoader(dataset, batch_size=1024, num_workers=6, shuffle=False, pin_memory=True)
 
     # visual feature save path
@@ -119,7 +118,7 @@ def main(args):
         else:
             print(f"unknown video name {video_name}")
 
-        np.save(os.path.join(feature_save_dir, f"{video_name}-features.npy"), features)
+        np.save(os.path.join(feature_save_dir, f"{video_name}.npy"), features)
         np.save(os.path.join(feature_save_dir, f"{video_name}-labels.npy"), labels)
 
     return
@@ -127,7 +126,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('experiment configs', add_help=False)
-    parser.add_argument('--gpus', default="0", type=str, help='GPU id to use.')
+    parser.add_argument('--gpus', default="2 ", type=str, help='GPU id to use.')
     parser.add_argument('--frame-dir', default="/root/dataspace/cholec80/frames", type=str, help='Path to the video frames.')
     parser.add_argument('--label-dir', default="/root/dataspace/cholec80/phase_annotations", type=str, help='Path to labels.')
     parser.add_argument('--dataset', default="cholec80", type=str, help='Dataset used.')
