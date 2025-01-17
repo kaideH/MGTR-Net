@@ -61,7 +61,6 @@ class Dataset(torch.utils.data.Dataset):
         return 
 
 
-    # 每次迭代重新从不同的手术阶段中随机抽取视频片段
     def reset_buffer(self):
         self.clip_buffer = []
         for video_name in self.sub_set:
@@ -69,7 +68,6 @@ class Dataset(torch.utils.data.Dataset):
             total_labels = self.samples[video_name]["total_labels"]
             total_indexs = self.samples[video_name]["total_indexs"]
 
-            # 找到每个独立的视频片段对应的索引
             label_groups = []
             group_indexes = []
             for idx, label in enumerate(total_labels):
@@ -78,10 +76,9 @@ class Dataset(torch.utils.data.Dataset):
                         label_groups.append([total_labels[group_indexes[0]], group_indexes])
                     group_indexes = []
                 group_indexes.append(idx)
-            if group_indexes:  # 最后一个分组
+            if group_indexes: 
                 label_groups.append([total_labels[group_indexes[0]], group_indexes])
 
-            # 从每个视频片段中随机抽取视频片段
             for label, indices in label_groups:
                 phase_frames = [total_frames[i] for i in indices]
                 phase_labels = [total_labels[i] for i in indices]
@@ -116,7 +113,6 @@ class Dataset(torch.utils.data.Dataset):
         N_images, N_labels, video_name, N_frame_ids = self.clip_buffer[index]
 
         N_inputs = []
-        # 对每个clip单独进行数据transform
         for clip_imgs in N_images:
             clip_imgs = [accimage.Image(path) for path in clip_imgs]
             clip_imgs = self.transforms(clip_imgs) 
@@ -233,65 +229,12 @@ def build_loader(args, sub_set, get_label, training=True):
         ])
         shuffle = False
 
-    print(sub_set)
-    print(data_transforms)
+    print("Data subset:", sub_set)
     dataset = Dataset(data_transforms, args.image_base, args.label_base, args.sample_rate, sub_set, args.N, args.L, get_label, shuffle=shuffle)
     loader = DataLoader(dataset, batch_size=args.batch_size, num_workers=3, shuffle=shuffle, pin_memory=True, collate_fn=collate_batch)
     prefetcher = Prefetcher(loader)
     return prefetcher
 
 
-if __name__ == "__main__":
-    os.environ["CUDA_VISIBLE_DEVICES"] = "2"
-
-    import argparse
-    parser = argparse.ArgumentParser('experiment configs', add_help=False)
-
-    parser.add_argument('--batch-size', default=6, type=int)
-    parser.add_argument('--N', default=10, type=int)
-    parser.add_argument('--sample-rate', default=25, type=int)
-    parser.add_argument('--L', default=10, type=int)
-
-    parser.add_argument('--image_base', default="/root/dataspace/cholec80/frames", type=str)
-    parser.add_argument('--label_base', default="/root/dataspace/cholec80/phase_annotations", type=str)
-
-    args = parser.parse_args()
-
-    def get_label(label_path):
-        phase_dict_key = {
-            'Preparation': 0, 
-            'CalotTriangleDissection': 1, 
-            'ClippingCutting': 2, 
-            'GallbladderDissection': 3, 
-            'GallbladderPackaging': 4, 
-            'CleaningCoagulation': 5, 
-            'GallbladderRetraction': 6
-        }
-
-        label_dict = {}
-        f = open(label_path)
-        lines = f.readlines()[1:] # first line is "Frame\tPhase"
-        f.close()
-        for line in lines:
-            frame_idx, label = line.strip().split("\t")
-            label_dict[int(frame_idx)] = phase_dict_key[label]
-        return label_dict
-
-    sub_set = [f"video{i:02d}" for i in range(33, 41)]
-    data_loader = build_loader(args, sub_set, get_label, training=True)
-    print(data_loader)
-    print("total iters", len(data_loader))
-    
-    bar = tqdm(total=len(data_loader))
-    inputs, labels, video_name, frame_idx = data_loader.get_next()
-    print("inputs", inputs.cpu().numpy().shape)
-    print("labels", labels.cpu().numpy().shape)
-    print(labels.cpu().numpy())
-    print("video_name", video_name)
-    print("frame_idx", frame_idx)
-    while inputs is not None:
-        inputs, labels, video_name, frame_idx = data_loader.get_next()
-        print(labels)
-        bar.update(1)
 
 

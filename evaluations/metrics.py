@@ -54,9 +54,6 @@ class Metrics():
         self.f1_list.append(f1)
 
         return
-    
-    def evaluate_surgery(self):
-        return
 
     def jaccard(self):
         jaccard = np.array(self.jaccard_list)

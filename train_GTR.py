@@ -11,10 +11,6 @@ import torch.optim as optim
 from torch.cuda.amp import GradScaler, autocast
 
 from utils import graph_construction
-# from grasp_eval import eval_grasp_mAP
-
-import warnings
-warnings.filterwarnings("ignore")
 
 
 def train_epoch(data_loader, model, optimizer, criterion, mse, args, scaler):
@@ -97,14 +93,6 @@ def test_epoch(data_loader, model, criterion, mse):
         corrects += torch.sum(predicts==labels).item()
         total += labels.shape[0]
 
-        ## GraSP mAP
-        # new_video_names = []
-        # for video_name in video_names:
-        #     new_video_names.extend([video_name] * 10)
-        # pred_scores = torch.softmax(outputs, 1).detach().cpu().numpy()
-        # for i in range(len(pred_scores)):
-        #     pred_dicts[f"{new_video_names[i]}/{frame_encodings[i]:05d}.jpg"] = { "phases_score_dist": pred_scores[i].tolist() }
-
         inputs, labels, video_names, frame_idxs = data_loader.get_next()
         bar.update(1)
 
@@ -112,22 +100,18 @@ def test_epoch(data_loader, model, criterion, mse):
     avg_loss = total_loss / len(data_loader)
     acc = corrects / total * 100
 
-    # json.dump(pred_dicts, open("grasp_json/grasp_prediction.json", "w"))
-
     return acc, avg_loss, time_spend
 
 
 def main(args):
-    ## setup experiment
+    ## preparation
     args.base_path = os.path.join("exps", args.dataset, "SoC", f"cross_{args.cross}") 
     assert not os.path.exists(args.base_path), f"Experiment folder {args.base_path} already exists!" 
     os.makedirs(args.base_path)
 
-    # checkpoint
     args.checkpoint_path = os.path.join(args.base_path, "ckpts")
     os.makedirs(args.checkpoint_path)
 
-    # logger
     log_path = os.path.join(args.base_path, 'log.log')
     logger.remove()
     logger.add(sys.stdout)
@@ -139,38 +123,19 @@ def main(args):
     print(args)
 
 
-    # data 
-    from spatial.datasets.sparsely_sample import build_loader
-    import data_split
+    ## load data 
+    from datasets.sparsely_sample import build_loader
     if args.dataset == "cholec80":
-        args.image_base = "/root/dataspace/cholec80/frames"
-        args.label_base = "/root/dataspace/cholec80/phase_annotations"
-        get_label = data_split.get_label_cholec80
-        sub_set = data_split.data_sub_set_cholec80
-    elif args.dataset == "cataracts101":
-        from spatial.datasets.cataracts101.cataracts101_clip import build_loader
-    elif args.dataset == "autolaparo":
-        from spatial.datasets.autolaparo.clip import build_loader
-    elif args.dataset == "GraSP":
-        from spatial.datasets.grasp.clip import build_loader
-    elif args.dataset == "MultiBypass140":
-        from spatial.datasets.mbp140.clip import build_loader
-    elif args.dataset == "Heidelberg":
-        from spatial.datasets.heidelberg.clip import build_loader
-    elif args.dataset == "cholecT50":
-        from spatial.datasets.cholecT50.clip import build_loader
-    elif args.dataset == "Hei-Chole":
-        from spatial.datasets.heichole.clip import build_loader
+        from data_splits.cholec80 import get_label, DATA_SPLIT
     else:
-        raise NotImplementedError(f"unkown dataset {args.dataset}")
-
-    train_loader = build_loader(args, sub_set[f"cross_{args.cross}_train"], get_label, training=True)
-    val_loader  =  build_loader(args, sub_set[f"cross_{args.cross}"], get_label, training=False)
+        raise Exception(f"unknown dataset {args.datasets}")
+    train_loader = build_loader(args, DATA_SPLIT[f"cross_{args.cross}_train"], get_label, training=True)
+    val_loader  =  build_loader(args, DATA_SPLIT[f"cross_{args.cross}"], get_label, training=False)
     print(f"Iters train: {len(train_loader)}, val: {len(val_loader)}")
     
 
-    # model
-    from spatial.feature_encoder import Network
+    # init model
+    from models.feature_encoder import Network
     model = Network(args.num_classes).cuda()
     param_group = [
         {'params': model.backbone.parameters(), 'lr': args.lr / 10},
@@ -215,7 +180,6 @@ def main(args):
         ## val
         val_acc, average_loss, time_spend = test_epoch(val_loader, model, criterion, mse)
         print(f"Epoch {epoch}, Val time: {time_spend}, Val loss: {average_loss:.6f}, Val acc: {val_acc:.4f}")
-        # test_mAP = eval_grasp_mAP(coco_ann_path=f"grasp_json/cross_{args.cross}.json", pred_path="grasp_json/grasp_prediction.json")
 
         # update test msg
         if val_acc > best_val_acc:
@@ -231,13 +195,13 @@ def main(args):
     return
 
 
-"""
-python train_GTR.py --dataset=cholec80 --gpus="2" --epochs=30 --batch-size=4 --sample-rate=25 --lr=1e-3 --num-classes=7 --N=10 --L=10 --cross=1
-"""
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('experiment configs', add_help=False)
     parser.add_argument('--epochs', default=100, type=int, help='number of total epochs to run')
     parser.add_argument('--gpus', default="0", type=str, help='GPU id to use.')
+
+    parser.add_argument('--image-base', type=str)
+    parser.add_argument('--label-base', type=str)
 
     parser.add_argument('--dataset', default="cholec80", type=str)
     parser.add_argument('--lr', default=1e-3, type=float)

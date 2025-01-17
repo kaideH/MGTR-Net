@@ -7,11 +7,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.data import DataLoader
 
 from evaluations.metrics import Metrics
-
-import warnings
-warnings.filterwarnings("ignore")
+from datasets.temporal import Dataset 
 
 
 def loss_function(outputs, labels, ce, mse, args):
@@ -81,16 +80,14 @@ def test_epoch(data_loader, model, criterion, args):
 
 
 def main(args):
-    ## setup experiment
-    args.base_path = os.path.join("exps", args.dataset, "temporal_mix") 
-    assert not os.path.exists(args.base_path), f"Experiment folder {args.base_path} already exists!"
+    ## preparation
+    args.base_path = os.path.join("exps", args.dataset, "temporal") 
+    assert not os.path.exists(args.base_path), f"Experiment folder {args.base_path} already exists!" 
     os.makedirs(args.base_path)
 
-    # checkpoint
     args.checkpoint_path = os.path.join(args.base_path, "ckpts")
     os.makedirs(args.checkpoint_path)
 
-    # logger
     log_path = os.path.join(args.base_path, 'log.log')
     logger.remove()
     logger.add(sys.stdout)
@@ -103,23 +100,18 @@ def main(args):
 
 
     ## data
-    from temporal.datasets import Dataset 
-    from torch.utils.data import DataLoader
-
-    # feature_base_path = os.path.join("exps", args.dataset, args.exp_name, args.feature_exp_type, "features", args.ckpt_type)
-    # feature_base_path = "features/cholec80"
-    feature_base_path = "features/mix"
-
-    
-    dataset = Dataset(os.path.join(feature_base_path, "train"), training=True)
+    dataset = Dataset(os.path.join(args.feature_path, "train"), training=True)
     train_loader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=True, pin_memory=True)
 
-    dataset = Dataset(os.path.join(feature_base_path, "test"), training=False)
+    dataset = Dataset(os.path.join(args.feature_path, "val"), training=False)
+    val_loader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=False, pin_memory=True)
+
+    dataset = Dataset(os.path.join(args.feature_path, "test"), training=False)
     test_loader = DataLoader(dataset, batch_size=1, num_workers=1, shuffle=False, pin_memory=True)
-    print("Iters train: {}, test: {}".format(len(train_loader), len(test_loader)))
+    print(f"Iters train: {len(train_loader)}, val: {len(val_loader)}, test: {len(test_loader)}")
 
 
-    from temporal.model import Network
+    from models.temporal_encoder import Network
     model = Network(in_feature=args.input_size, num_layers=3, num_classes=args.num_classes) 
     model = model.cuda()
     print(f'Model Size: {sum(p.numel() for p in model.parameters())}')
@@ -134,7 +126,8 @@ def main(args):
 
 
     # train 
-    best_test_acc, bset_epoch = 0, 0
+    best_val_acc, bset_val_epoch = 0, -1
+    best_test_acc, bset_test_epoch = 0, -1
     for epoch in range(1, args.epochs+1):
         # learning rate
         lr = optimizer.state_dict()["param_groups"][-1]["lr"]
@@ -142,10 +135,9 @@ def main(args):
 
         ## train
         average_loss, time_spend, metric = train_epoch(train_loader, model, optimizer, criterion, args)
-        scheduler.step(average_loss)
         print(f"Epoch {epoch}, Train time: {time_spend}, Train loss: {average_loss:.6f}")
-        metric.evaluate_surgery()
         print(f"Train metrics: \n{pprint.pformat(metric.metrics_dict())}.")
+        scheduler.step(average_loss)
 
 
         # save train checkpoint
@@ -159,43 +151,52 @@ def main(args):
         torch.save(checkpoint_dict, pthFilePath)
 
 
+        ## val
+        average_loss, time_spend, metric = test_epoch(val_loader, model, criterion, args)
+        print(f"Epoch {epoch}, Val time: {time_spend}, Val loss: {average_loss:.6f}")
+        print(f"Val metrics: \n{pprint.pformat(metric.metrics_dict())}.")
+
+        if metric.acc()[0] > best_val_acc:
+            best_val_acc = metric.acc()[0]
+            bset_val_epoch = epoch
+            shutil.copyfile(pthFilePath, os.path.join(args.checkpoint_path, f"best_val_acc.pth"))
+            print("Val ACC increased to {}".format(best_val_acc))
+        else:
+            print("Val ACC not increase, best ACC is {} in epoch {}".format(best_val_acc, bset_val_epoch))
+
+
         ## test
         average_loss, time_spend, metric = test_epoch(test_loader, model, criterion, args)
         print(f"Epoch {epoch}, Test time: {time_spend}, Test loss: {average_loss:.6f}")
-        metric.evaluate_surgery()
         print(f"Test metrics: \n{pprint.pformat(metric.metrics_dict())}.")
 
         if metric.acc()[0] > best_test_acc:
             best_test_acc = metric.acc()[0]
-            bset_epoch = epoch
-            shutil.copyfile(pthFilePath, os.path.join(args.checkpoint_path, f"best_test_acc.pth"))
+            bset_test_epoch = epoch
             print("Test ACC increased to {}".format(best_test_acc))
         else:
-            print("Test ACC not increase, best ACC is {} in epoch {}".format(best_test_acc, bset_epoch))
+            print("Test ACC not increase, best ACC is {} in epoch {}".format(best_test_acc, bset_test_epoch))
 
 
     print("Model Train Success !")
-    print(f'Bset epoch: {bset_epoch}.')
-    print(f'Best test ACC: {best_test_acc}')
+    print(f'Bset val epoch: {bset_val_epoch}, ACC: {best_val_acc}.')
+    print(f'Bset test epoch: {bset_test_epoch}, ACC: {best_test_acc}.')
     return
 
 
-"""
-python train_temporal.py --dataset=cholec80 --gpus="2" --epochs=100 --num-classes=7 --input-size=2048
-"""
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('experiment configs', add_help=False)
-    parser.add_argument('--epochs', default=100, type=int, help='number of total epochs to run')
-    parser.add_argument('--gpus', default="0", type=str, help='GPU id to use.')
+    parser.add_argument('--epochs', default=100, type=int)
+    parser.add_argument('--gpus', default="0", type=str)
 
-    parser.add_argument('--dataset', default="cholec80", type=str)
+    parser.add_argument('--dataset', type=str)
+    parser.add_argument('--feature-path', type=str)
     parser.add_argument('--lr', default=1e-3, type=float)
 
     parser.add_argument('--num-classes', default=7, type=int)
     parser.add_argument('--input-size', default=2048, type=int)
 
     parser.add_argument('--alpha', default=0.15, type=float)
-    parser.add_argument('--data-trans', action="store_true")
 
     args = parser.parse_args()
 

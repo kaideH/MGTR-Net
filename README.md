@@ -3,6 +3,12 @@
 Code for the paper "**Multi-Teacher Graph Temporal Relational Network for Online Surgical Workflow Recognition**"
 
 
+## Train the MGTR-Net
+```bash
+sh train.sh
+```
+
+
 ## Evaluate the MGTR-Net
 
 - **stage 1: Feature Extraction**
