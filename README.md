@@ -2,7 +2,7 @@
 Code for the paper "**Multi-Teacher Graph Temporal Regulation Network for Surgical Workflow Recognition**"
 
 ## Data
-- We have evaluated our MGTR-Net on eight datasets: Cholec80, Cataract-101, AutoLaparo, MultiBypass140, HeiChole, Heidelberg, GraSP, and CholecT50. 
+- We have evaluated our MGTR-Net on eight datasets: [Cholec80](https://camma.unistra.fr/datasets/), [Cataract-101](https://ftp.itec.aau.at/datasets/ovid/cat-101/), [AutoLaparo](https://autolaparo.github.io), [MultiBypass140](https://github.com/CAMMA-public/MultiBypass140), [HeiChole](https://www.synapse.org/Synapse:syn18824884/wiki/591922), [Heidelberg](https://www.synapse.org/Synapse:syn21903917/wiki/601992), [GraSP](https://github.com/BCV-Uniandes/GraSP), and [CholecT50](https://github.com/CAMMA-public/cholect50). 
 - To train and test this method, first download the original datasets and parse the surgical videos into discrete video frames. The dataset format should be structured as follows:
 ```
 dataset_name/
